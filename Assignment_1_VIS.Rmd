@@ -4,14 +4,16 @@ author: Sara Arman
 output: html_document
 ---
 
+
 #Sara Arman
-## Creative Assignment 2
+## Creative Assignment 1
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r load libraries, results='hide'}
+
+```{r load libraries, message=FALSE}
 library(tidycensus)
 library(tidyverse)
 library(ggplot2)
@@ -24,20 +26,25 @@ library(quantreg)
 
 ## Variables 
 
-###For this assignment I am using the same variables Carole provided in the tutorial, I am also using the census data, but in Clark County, Nevada. 
+<<<<<<< HEAD
+### For this assignment I am using the same variables Carole provided in the tutorial, I am also using the census data, but in Clark County, Nevada. 
+=======
+### For this assignment I am using the same variables Carole provided in the tutorial, I am also using the census data, but in Clark County, Nevada. 
 
 Carole's variables are:
 
 
-1.Majority race/ethnicity (categorical)
-2.Average household size (continuous)
-3.Median age of residents (continuous)
-4.Percent of households who live in rented homes (continuous)
-5.Urban or rural (categorical)
-6.Population of the tract (continuous)
+<<<<<<< HEAD
+1. Majority race/ethnicity (categorical)
+2. Average household size (continuous)
+3. Median age of residents (continuous)
+4. Percent of households who live in rented homes (continuous)
+5. Urban or rural (categorical)
+6. Population of the tract (continuous)
 
 
-```{r}
+
+```{r, results='hide'}
 vars <- c(tot_hh = "H001001",
          tot_rural_hh = "H002005",
          tot_rent_hh = "H004004",
@@ -116,29 +123,29 @@ ggplot(CL_tracts,
 
 ### Graph 4: Histogram of Median Age in Clark County Nevada
 
-In this histogram I plotted the median age, I had difficulty getting the X axis to show, so instead I broke up the sequence by 1 to show each age. 
+<<<<<<< HEAD
+In this histogram I plotted the median age, I had difficulty getting the X axis to show, and Carole suggested that my breaks were set at 0 and 1, so I have updated the breaks on both my x and y axis to be a more representative scale. 
 
 ```{r}
 
 ggplot(CL_tracts,
        aes(x = med_age)) + 
-geom_histogram(aes(fill = ..count..), binwidth = .5, color = "black", weight = 5) +
+geom_histogram(aes(fill = ..count..), binwidth = 5, color = "black") +
 scale_x_continuous(name = "Median Age",
-                   breaks = seq(0, 1, by = 1)) +
+                   breaks = seq(0, 95, by = 5)) +
 scale_y_continuous(name = "Count",
-                  breaks = seq(0, 20, by = 2)) + 
+                  breaks = seq(0, 200, by = 20)) + 
 labs(title = 'Median Age in Clark County Nevada')+
  theme_bw()
 coord_flip()
 ```
 
 
-
-
-
+<<<<<<< HEAD
 ### Graph 5: Bar Chart (One Categorical Variable)
 
-On the ggplot cheat sheet, it showed that bar charts are good for displaying one categorical variable. The reading for last week said something similar, but it helped to see this in practice.
+On the ggplot cheat sheet, it showed that bar charts are good for displaying one categorical variable. The reading for last week said something similar, but it helped to see this in practice. This bar chart shows that there are more majority white census tracts in Clark County, than there are majority black or hispanic tracts.
+
 
 ```{r}
 ggplot(CL_tracts, 
@@ -151,14 +158,15 @@ labs(title = 'Majority Race and Ethnicity Clark County Nevada')+
 
 ### Graph 6: Dot Plot of Total Population and Race/Ethnicity 
 
-I thought this graph would show the race/ethnicity of the entire population, but it doesn't really show anything! I am going to keep trying to make a Dot Plot. 
+I thought this graph would show the race/ethnicity of the entire population, but I'm not actually sure how to interpret it. I adjusted the fill as Carole suggested, which helped me get more visible plots, and adjusted the binwidth.  I am going to keep trying to make a dot plot.
 
 ```{r}
 ggplot(CL_tracts, 
        aes(x = tot_pop,
            fill = tot_pop,
            size = tot_pop,
-           color = majority_race_eth)) +
+           fill = majority_race_eth) +
+           color = majority_race_eth) +
   geom_dotplot(binwidth = .5, stackdir = "center")+
   scale_x_continuous(name = "Total Population")+
   labs(title = 'Race, Ethnicity of Total Population in Clark County')+
@@ -167,16 +175,18 @@ ggplot(CL_tracts,
 
 ### Graph 7: Dot Plot of Average Household Size by Rural or Urban Area
 
-I tried to make another dotplot, but this time with average household size, by rural or urban area.I don't think the way I have represented the data makes a lot of sense, maybe dot plots are better for categorical variables and Household size is continous. (Thank you to Julia for helping me with both Dotplots!)
+
+I tried to make another dotplot, but this time with average household size, by rural or urban area.I don't think the way I have represented the data makes a lot of sense, maybe dot plots are better for categorical variables and Household size is continous. (Thank you to Julia for helping me with both Dotplots and Carole for suggesting I change my binwidth to .7 and make my dots more transparent!)
+
 ```{r}
 ggplot(CL_tracts, 
        aes(x = avg_hh_size,
            fill = rural)) +
-  geom_dotplot(binwidth = .25, stackdir = "centerwhole")+
+
+  geom_dotplot(binwidth = .07, alpha = .5,  stackdir = "centerwhole")+
   scale_x_continuous(name = "Average Household Size")+
   scale_fill_discrete (name = "Rural or Urban Area") +
   labs(title = 'Average Household Size by Rural or Urban Area')+
-  
   theme_bw()
 ```
 
@@ -189,9 +199,15 @@ ggplot(CL_tracts,
       aes(x = med_age,)) +
   geom_density()
 ```
+<<<<<<< HEAD
+###  Graph 9: Quantile Graph to Represent Continous X (Median Age) and Continous Y (Average Household Size)
+
+I used the quantile graph on the gg cheat sheet to represent 2 continous variables. Once I graphed it I had to install "quantreg" to be able to run the graph. When I searched what a quantile regression is,I learned that a quantile graph would be useful to show a relationship between variables that are not normally distributed, or are outside of the mean. I think this graph shows that as median age decreases, so does average household size.
+=======
 ### Graph 9: Quantile Graph to Represent Continous X (Median Age) and Continous Y (Average Household Size)
 
 I saw the quantile graph on the gg cheat sheet to represent 2 continous variables. Once I graphed it I had to install "quantreg" to be able to run the graph.
+>>>>>>> 33f14214d4ae74e4cf02609e58b10501985d2ff1
 
 ```{r}
 ggplot(CL_tracts, 
@@ -201,16 +217,21 @@ geom_quantile()
  labs(title = 'Average Household Size by Median Age')+
 theme_classic()
 ```
+<<<<<<< HEAD
+
 ### Graph 10: "Raster" Graph to Represent 3 variables 
 
-I tried to graph 3 variables by using the raster graph, but that didn't work. R studio told me to "consider using "geom_tile" instead.", which I did, but I don't think the graph shows anything meaningful. I am interested in learning how to show multiple variables on a single graph.
+I tried to graph 3 variables by using the raster graph, but that didn't work. R studio told me to "consider using "geom_tile" instead.", which I did, but I don't think the graph shows anything meaningful. I am interested in learning how to show multiple variables on a single graph. Per Carole's suggestion, I changed the graph to be geom(point), and I have a much more interesting graph. 
+
 
 ```{r}
 ggplot(CL_tracts, 
       aes(x = med_age,
-          y = pct_rental, 
+          y = pct_rental, color = 'orange',
           size = avg_hh_size)) +
-geom_raster() 
+geom_point(alpha = .5,  
+          y = pct_rental, 
+          size = avg_hh_size) +
  labs(title = 'Percent of Households Renting by Median Age in Clark County')+
 theme_bw()
 ```
