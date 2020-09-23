@@ -1,0 +1,232 @@
+---
+title: "Creative Assignment 2"
+author: "Sara Arman"
+date: "9/18/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+``` {r load libraries, results = "hide", message = FALSE, warning = FALSE}
+
+library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(viridis)
+library(wesanderson)
+library(tidyverse)
+library(ggspatial)
+library(cartogram)
+library(ggthemes)
+```
+
+``` {r world map}
+
+world <- ne_countries(scale = 50, returnclass = "sf") 
+world_map <- ggplot(world) +
+  geom_sf() +
+  theme_bw()
+world_map
+```
+
+### I am drawing the South America Map just to try it out 
+
+``` {r, message = FALSE}
+
+sa_countries <- world %>%
+  filter(continent == "South America")
+sa_map <- ggplot(sa_countries) +
+  geom_sf() + 
+  theme_wsj()
+sa_map
+```
+
+### For my assignment I want to look at the African Continent, specifcally examining/visualizing how many women are elected to office there. 
+
+First, I will map out the African Continent using the example code Carole provided in the tutorial with the 'minimal' theme.
+
+```{r, message = FALSE}
+
+africa_countries <- world %>%
+  filter(continent == "Africa")
+africa_map <- ggplot(africa_countries) +
+  geom_sf() + 
+  theme_minimal()
+africa_map
+```
+
+## Reprojecting MAP data:
+Using the spatial reference list, I selected:
+
+1. SR-ORG:7434: North_african_bonne North Africa List, 
+2. SR-ORG:7644: East Africa East Africa list
+3. SR-ORG:8550: South African Albers NGI aerials - South Africa
+4. ESRI:102023: Africa Equidistant Conic and Africa Equidistant Conic to define my coordinate systems.
+
+I thought projecting them across North, East, and South would make for an interesting comparison, and I selected the Equidistant Conic because it is used for large regions that span East to West.
+
+```{r, message = FALSE}
+
+North_Africa <- "+proj=bonne +lon_0=2.337208 +lat_1=35.1 +x_0=0 +y_0=0 +a=6378249.2 +b=6356514.999904194 +units=m +no_defs"
+East_Africa <- "+proj=utm +zone=36 +south +ellps=clrk80 +units=m +no_defs"
+South_Africa <- "+proj=aea +lat_1=24 +lat_2=-33 +lat_0=0 +lon_0=24 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs"
+Africa_Equidistant<-"+proj=eqdc +lat_0=0 +lon_0=0 +lat_1=20 +lat_2=-23 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs "
+```
+
+### Projection Maps
+How the Map looks with my 4 projections: The North Africa and East Africa maps look the most distorted!
+
+``` {r, message = FALSE}
+
+ggplot(africa_countries) +
+  geom_sf() +
+  coord_sf(crs = North_Africa) +
+  theme_bw()
+ggplot(africa_countries) +
+  geom_sf() +
+  coord_sf(crs = East_Africa) +
+  theme_bw()
+ggplot(africa_countries) +
+  geom_sf() +
+  coord_sf(crs = South_Africa) +
+  theme_bw()
+ggplot(africa_countries) +
+  geom_sf() +
+  coord_sf(crs = Africa_Equidistant) +
+  theme_bw()
+```
+
+
+### Now that I have my map projections, I am going to pull data from the Interparliamentary Union on women elected to parliament. 
+
+I created my own CSV by only including countries in Africa. (Thank you Arnav for telling me about this in class!)
+
+With this data I have access to the number of seats available, the number of women elected, and the percentage of women elected. 
+
+``` {r, message = FALSE}
+
+women_elected <- read.csv ("Updated Africa- Women In Parliament.csv")
+```
+
+
+
+### I am merging my data set on women elected to parliament, with my Africa data.
+(thank you Aleksander for helping me with this!)
+
+```{r, message = FALSE}
+
+women_africa_countries <- africa_countries %>% left_join(women_elected, by= c("name"="Country"))
+```
+
+
+### My Map:
+
+My original variable is percent women elected to parliament. With this map you can see that many countries have not achieved gender parity in their parliaments. Rwanda stands out as the only country that has more than 50% women elected to office, they also rank number one in the world for most women elected to office. Though this is originally what I wanted to look at, I am switching to include both GDP and Women Elected to Office for the rest of the exercise as I could not get my maps to work with only my women elected to office variable. This might be an error in the way that I have merged the data.  
+
+
+```{r,message = FALSE}
+
+ggplot(women_africa_countries, aes(fill = percent_women)) +
+  geom_sf(color = 'NA') +
+  scale_fill_viridis_c(
+    name = "Percent of Women Elected to Parliament",
+    breaks = seq (0, 100, by = 10))+
+  theme_map() +
+  theme(legend.background = element_blank())
+```
+
+### My Map with GDP
+
+I had struggled with the code to make the right maps, I think this is because of an error with the way I merged the data, or perhaps I am coding it wrong, so I have decided to view GDP on the African continent instead. Where possible, I will try to map it with the percentage of women elected to office. 
+
+```{r, results= "hide"}
+
+options(scipen = 999)
+ggplot(women_africa_countries, aes(fill = gdp_md_est)) +
+  geom_sf(color = 'NA') +
+  scale_fill_viridis_c(
+    name = "GDP by Country",
+    breaks = seq (0, 100000000, by = 25000000))+
+    geom_sf_label(aes(geometry, label = gu_a3), size = 1.5, color = "orange", fill = NA, label.size = NA) +
+  labs(title = "GDP by Country")
+ theme_map() +
+  theme(legend.background = element_blank())
+```
+
+
+
+### I will transform my coordinate system.
+
+I am using the Africa Equidistant Projection for all of my maps- Thanks Ana for showing me how to do this! 
+
+```{r, message = FALSE}
+
+africa_transform <- women_africa_countries %>% 
+  st_transform(crs = Africa_Equidistant)
+```
+
+## Chloropleth Map
+
+With this map I am only looking at GDP by country. The countries that are purple and dark blue have a smaller GDP, and the yellow and greens have a higher GDP. While I had a hard time getting this to work at first, I looked at the code Megan used, and then Ana reviewed my code and helped me get it right! Thank you both!
+
+```{r, results= "hide"}
+
+ggplot(africa_transform,
+       aes(fill = gdp_md_est)) +
+  geom_sf(color = "NA") +
+  scale_fill_viridis_c(
+    name = "GDP",
+    breaks = seq(0,500000000, by = 100000000),
+    labels = c("$0","100000000","200000000","30000000","400000000", "500000000")) +
+    geom_sf_label(aes(geometry, label = gu_a3), size = 1.5, color = "orange", fill = NA, label.size = NA) +
+  labs(title = "GDP by Country")
+ theme_map() +
+  theme(legend.background = element_blank())
+```
+
+
+## Continuous Cartogram
+
+This map is really interesting as it has completely erased the countries that do not have women elected to parliament (the gray countries on Map #1). Furthermore Rwanda and Ethiopia appear much larger. I am not completey certain I understand how GDP fits into this map. 
+
+```{r, results= "hide"}
+
+gdp_cont_cart<- africa_transform %>%
+  cartogram_cont("percent_women")
+ggplot(gdp_cont_cart,
+       aes(fill = gdp_md_est)) +
+  geom_sf(color = "NA", size = .5) +
+ scale_fill_viridis_c(
+    name = "GDP",
+    breaks = seq(0,500000, by = 100000),
+    labels = c("0","100000000","200000000","30000000","400000000", "500000000")) +
+  geom_sf_label(aes(geometry, label = gu_a3), size = 1.75, color = "orange", fill = NA, label.size = NA, fontface = "bold") +
+  labs(title = "GDP and Percentage of Women Elected to Office, By Country ")
+ theme_map() +
+  theme(legend.background = element_blank())
+```
+## Non-Continous Cartogram
+
+When I first mapped this out I used "percent_women" as my variable, but it just produced an empty map. I tried it out with "women" which is the number of women elected to each parliament. I don't completey understand why percentage created an empty map! I asked some classmates and we were all unsure, again it could be an error in the way I merged my data. 
+
+```{r, results= "hide"}
+
+gdp_ncont_cart<- africa_transform %>%
+  cartogram_ncont("women")
+ggplot(gdp_ncont_cart,
+       aes(fill = gdp_md_est)) +
+  geom_sf(color = "NA", size = .5) +
+ scale_fill_viridis_c(
+    name = "GDP",
+    breaks = seq(0,500000, by = 100000),
+    labels = c("0","100000000","200000000","30000000","400000000", "500000000")) +
+  geom_sf_label(aes(geometry, label = gu_a3), size = 1.75, color = "orange", fill = NA, label.size = NA, fontface = "bold") +
+  labs(title = "GDP and Number of Women Elected to Office, By Country ")
+ theme_map() +
+  theme(legend.background = element_blank())
+```
+
