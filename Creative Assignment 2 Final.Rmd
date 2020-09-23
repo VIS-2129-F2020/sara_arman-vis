@@ -188,6 +188,27 @@ ggplot(africa_transform,
   theme(legend.background = element_blank())
 ```
 
+## Proportional Sybmol Map
+
+With this map I viewing GDP by country,I don't think this is effective as it shows all the GDP's as being equal, though countries such as Nigeria have much higher GDP's.
+```{r}
+gdp_centroids <- africa_transform %>% 
+  st_centroid()
+
+ggplot(gdp_centroids) +
+aes(fill = gdp_md_est) +
+  geom_sf(fill = "green", color = "orange") +
+  geom_sf(color = "NA", size = 5) +
+ scale_fill_viridis_c(
+    name = "GDP",
+    breaks = seq(0,500000000, by = 100000000),
+    labels = c("0","100000000","200000000","30000000","400000000", "500000000")) +
+  geom_sf_label(aes(geometry, label = gu_a3), size = 2, color = "black", fill = NA, label.size = NA) +
+ theme_map() +
+  theme(legend.background = element_blank())
+```
+
+
 
 ## Continuous Cartogram
 
@@ -211,7 +232,7 @@ ggplot(gdp_cont_cart,
 ```
 ## Non-Continous Cartogram
 
-When I first mapped this out I used "percent_women" as my variable, but it just produced an empty map. I tried it out with "women" which is the number of women elected to each parliament. I don't completey understand why percentage created an empty map! I asked some classmates and we were all unsure, again it could be an error in the way I merged my data. 
+When I first mapped this out I used "percent_women" as my variable, but it just produced an empty map. I tried it out with "women" which is the number of women elected to each parliament. I don't completey understand why percentage created an empty map! I asked some classmates and we were all unsure, again it could be an error in the way I merged my data. I include it below.
 
 ```{r, results= "hide"}
 
@@ -230,3 +251,21 @@ ggplot(gdp_ncont_cart,
   theme(legend.background = element_blank())
 ```
 
+
+### Non-Continous Cartogram with percent women elected
+```{r, results= "hide"}
+
+gdp_ncont_cart<- africa_transform %>%
+  cartogram_ncont("percent_women")
+ggplot(gdp_ncont_cart,
+       aes(fill = gdp_md_est)) +
+  geom_sf(color = "NA", size = .5) +
+ scale_fill_viridis_c(
+    name = "GDP",
+    breaks = seq(0,500000, by = 100000),
+    labels = c("0","100000000","200000000","30000000","400000000", "500000000")) +
+  geom_sf_label(aes(geometry, label = gu_a3), size = 1.75, color = "orange", fill = NA, label.size = NA, fontface = "bold") +
+  labs(title = "GDP and Percent Women Elected to Office, By Country ")
+ theme_map() +
+  theme(legend.background = element_blank())
+```
