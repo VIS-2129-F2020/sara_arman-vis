@@ -1,0 +1,235 @@
+---
+title: "Creative Assignment 3"
+author: "Sara Arman"
+date: "9/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE}
+library(sf)
+library(tidyverse)
+library(ggthemes)
+library(ggspatial)
+library(units)
+library(nngeo)
+library(viridis)
+```
+
+### I am downloading data on neighborhoods, openspace, water, parks, and transportation
+
+Point Layer A: Parks
+Point Layer B:Water
+Polygon Layer C:Neighborhood
+Polygon Layer D: Transport (clarify what is included)
+
+
+```{r}
+nhoods <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/3525b0ee6e6b427f9aab5d0a1d0a1a28_0.kml?outSR=%7B%22latestWkid%22%3A2249%2C%22wkid%22%3A102686%7D", quiet = TRUE) 
+
+water <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/a6c85755966a478680c73a711763fd19_6.kml", quiet = TRUE)
+
+transport <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/f953f854b672496fb0aa18ad92278f07_5.kml?outSR=%7B%22latestWkid%22%3A2249%2C%22wkid%22%3A102686%7D", quiet = TRUE)
+
+parks <- st_read("http://bostonopendata-boston.opendata.arcgis.com/datasets/2868d370c55d4d458d4ae2224ef8cddd_7.kml", quiet = TRUE)
+```
+
+
+### I am transforming the data on the MA state plane 
+```{r}
+MA_state_plane <- "+proj=lcc +lat_1=41.71666666666667 +lat_2=42.68333333333333 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +units=m +no_defs"
+nhoods <- nhoods %>%
+  st_transform(MA_state_plane)
+water <- water %>%
+  st_transform(MA_state_plane)
+transport <- transport %>%
+  st_transform(MA_state_plane)
+parks <- parks %>%
+  st_transform(MA_state_plane)
+```
+
+### I am mapping the data 
+
+```{r}
+ggplot(parks) +
+  geom_sf(fill = "green", color = NA) +
+  geom_sf(data = water, color = "blue") +
+  geom_sf(data = transport, color= "black") +
+  geom_sf(data= nhoods, fill = NA, color = "gray") +
+  geom_sf(data= parks, color = "lightgreen")+
+  theme_map() +
+  annotation_scale()
+```
+
+### Question 1: How many parks are in each neighborhood? (The number and proportion of A points within C polygons)
+
+I used some of Gemma's code to make this map! When I showed this in class on Monday my legend kept looking funny so my classmates helped me figure out how to change the scale- its not perfect yet but I will keep working on it. From my map it looks like theres only a tiny part of Boston that has more than 5 parks in a 5 mile radius. 
+
+```{r}
+nhoods <- nhoods %>%
+  mutate(num_parks = lengths(st_covers(nhoods, parks)))
+nhoods$area <- st_area(nhoods)
+nhoods$area = as.numeric(gsub("[m^2]", "", nhoods$area))
+nhoods <- nhoods %>%
+  mutate(density_parks = (num_parks / nhoods$area)*8046)
+```
+
+```{r}
+ggplot(nhoods) +
+  geom_sf(color = NA, 
+  aes(fill = density_parks)) +
+  scale_fill_viridis_c(name = "number of parks per \n8046 square meters", breaks = breaks <- seq(0, 5, by = 1), labels = paste(prettyNum(breaks, big.mark = ","), "parks")) +
+  annotation_scale(location = "br") +
+  theme_map() +
+ggtitle("neighborhoods by density of parks") +
+theme(panel.background = element_rect(fill = "white"),
+        legend.position="right", legend.background = element_rect(fill = alpha("white", 0.5), color = "purple"))
+```
+
+
+### Question 2: How many parks are accesible by Boston Transportation? (The number and proportion of A points within D polygons)
+
+I used a similar code to figure out how many parks were near transportation. This one was a little tricky because I was unsure what "transportation" means in this context, when I opened the dataset in R it listed name, description, and geography but the descriptions were empty. I would like to look more into this. 
+
+```{r}
+transport <- transport %>%
+  mutate(num_parks = lengths(st_covers(transport, parks)))
+transport$area <- st_area(transport)
+transport$area = as.numeric(gsub("[m^2]", "", transport$area))
+transport <- transport %>%
+  mutate(density_parks = (num_parks / transport$area)*800)
+```
+
+```{r}
+ggplot(transport) +
+  geom_sf(color = NA, 
+  aes(fill = density_parks)) +
+  scale_fill_viridis_c(name = "number of parks per \n.5 miles of transportation", breaks = breaks <- seq(0, 5, by = 1), labels = paste(prettyNum(breaks, big.mark = ","), "parks")) +
+  annotation_scale(location = "br") +
+  theme_map() +
+ggtitle("parks and transportation") +
+theme(panel.background = element_rect(fill = "white"),
+        legend.position="right", legend.background = element_rect(fill = alpha("white", 0.5), color = "purple"))
+```
+
+### Question 3:How much overlap is there between transportation options and neighborhoods? (The number and proportion of D polygons that overlap with C polygons)
+
+I used Meghan's code to map this. I am still a little confused on what the transportation dataset entails, because when I opened it to look at it it says China Town doesn't have any transportation, which isn't true. My code shows that 21 of 26 Boston neighborhoods have access to transport. 
+
+```{r}
+nhoods <- nhoods %>%
+  mutate(num_transport = lengths(st_overlaps(nhoods, transport))) %>%
+  mutate(has_transport = num_transport > 0)
+```
+
+```{r}
+n_transport_nhoods <- sum(nhoods$has_transport)
+n_transport_nhoods
+```
+
+```{r}
+left_side  <- st_bbox(transport)$xmin
+top_side <- st_bbox(nhoods)$ymax
+ggplot(transport) +
+  geom_sf(fill = "gray40", color = NA) +
+  geom_sf(data = nhoods,
+          aes(fill = has_transport)) +
+  scale_fill_manual(values = c("black", "purple"),
+    name = "Boston Neighborhoods\nby access to transport", 
+          labels = c("Neighborhoods without \nTransport",
+                     "Neighborhoods with \nTransport")) +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "tr",
+                       style = north_arrow_fancy_orienteering()) + 
+  theme_map() +
+  theme(legend.position = "left")
+```
+
+### Question 4: Bodies of Water by neighborhood (The number and proportion of B points within C Polygons)
+
+This one was interesting and the map came out pretty much how I expected- it made sense because East Boston is completely surrounded by water. I should have filtered out sewers because I noticed that was included in the dataset. 
+
+```{r}
+nhoods <- nhoods %>%
+  mutate(num_water = lengths(st_covers(nhoods, water)))
+nhoods$area <- st_area(nhoods)
+nhoods$area = as.numeric(gsub("[m^2]", "", nhoods$area))
+nhoods <- nhoods %>%
+  mutate(density_water = (num_water / nhoods$area)*8046)
+```
+
+```{r}
+ggplot(nhoods) +
+  geom_sf(color = NA, 
+  aes(fill = density_water)) +
+  scale_fill_viridis_c(name = "water per \n8046 square meters", breaks = breaks <- seq(0, 20, by = 4), labels = paste(prettyNum(breaks, big.mark = ","), "bodies of water")) +
+  annotation_scale(location = "br") +
+  theme_map() +
+ggtitle("how many bodies of water per neighborhood") +
+theme(panel.background = element_rect(fill = "white"),
+        legend.position="right", legend.background = element_rect(fill = alpha("white", 0.5), color = "purple"))
+```
+
+### Question 5: Bodies of Water and Transportation (The number and proportion of B points within D polygons)
+
+With this map I wanted to see how accessible bodies of water are by transportation. 
+
+```{r}
+transport <- transport %>%
+  mutate(num_water = lengths(st_covers(transport, water)))
+transport$area <- st_area(transport)
+transport$area = as.numeric(gsub("[m^2]", "", transport$area))
+transport <- transport %>%
+  mutate(density_water = (num_water / transport$area)*8046)
+```
+
+```{r}
+ggplot(transport) +
+  geom_sf(color = NA, 
+  aes(fill = density_water)) +
+  scale_fill_viridis_c(name = "water per \n8046 square meters", breaks = breaks <- seq(0, 5, by = 1), labels = paste(prettyNum(breaks, big.mark = ","), "bodies of water")) +
+  annotation_scale(location = "br") +
+  theme_map() +
+ggtitle("transportation and water access") +
+theme(panel.background = element_rect(fill = "white"),
+        legend.position="right", legend.background = element_rect(fill = alpha("white", 0.5), color = "purple"))
+```
+
+### Question 6: Distance between Parks and Bodies of Water (The Average Euclidian Distance between A points and their respective B points)
+
+For this I used some of Meghan's code, thanks Meghan! I think this is the only map that I had a hard time interpeting, but from my code I can see that the average distance between bodies of water and parks are 608 meters. 
+
+```{r, results='HIDE'}
+parks <- parks %>%
+  mutate(water_dist = st_nn(parks, water,
+                             returnDist = TRUE)$dist) %>%
+  mutate(water_dist = as.numeric(water_dist))
+```
+
+```{r}
+avg_water_dist <- mean(parks$water_dist)
+avg_water_dist
+```
+
+```{r, message=FALSE}
+right_side <- st_bbox(water)$xmax
+left_side  <- st_bbox(water)$xmin
+top_side <- st_bbox(water)$ymax
+bottom_side <- st_bbox(water)$ymin
+ggplot(nhoods) +
+  geom_sf(fill = "gray", color = "gray") +
+  geom_sf(data = parks, size = 2,
+          aes(color = water_dist)) +
+    scale_fill_viridis_c(name = "water and transport", breaks = breaks <- seq(0, 5, by = 1), labels = paste(prettyNum(breaks, big.mark = ","), "water")) +
+  annotation_scale(location = "br") +
+  theme_map() +
+  annotation_scale(location = "br") +
+  annotation_north_arrow(location = "bl",
+                       style = north_arrow_fancy_orienteering()) +
+  theme_map() +
+  theme(legend.position = "left")
+```
