@@ -1,0 +1,179 @@
+---
+title: "creative Assignment 4"
+author: "Sara Arman"
+date: "10/6/2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r, message=FALSE}
+library(osmdata)
+library(opentripplanner)
+library(tidyverse)
+library(sf)
+library(ggthemes)
+library(ggspatial)
+library(raster)
+```
+
+## Loading Data
+
+I am starting by following Carole's code but instead loading Public School data from Analyze Boston, and filtering it to only include Roxbury (the neighborhood I am looking at for Studio).When I was doing public schools for all of Roxbury, there were 19 points which was taking my computer a really long time to load, so thank you so much to Mel for suggesting I only include a certain schools. I used Mel's code to filter out to just elementary schools. 
+
+
+```{r, results = 'hide', message = FALSE}
+Boston_Public <- st_read ("http://bostonopendata-boston.opendata.arcgis.com/datasets/1d9509a8b2fd485d9ad471ba2fdb1f90_0.geojson?outSR=%7B%22latestWkid%22%3A2249%2C%22wkid%22%3A102686%7D")
+Roxbury_Public <- Boston_Public %>%
+  filter (CITY == "Roxbury")
+Roxbury_Public <- Boston_Public %>%
+  filter (CITY == "Roxbury", SCH_TYPE == "ES")
+```
+
+```{r}
+opq(bbox = 'Boston MA USA') %>%
+  add_osm_feature(key = 'highway') %>%
+  osmdata_xml(file = 'OTP/graphs/default/boston_streets.osm')
+```
+
+### I am transforming the data on to the MA plane.
+```{r, results = 'hide', message = FALSE}
+MA_state_plane <- "+proj=lcc +lat_1=41.71666666666667 +lat_2=42.68333333333333 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +units=m +no_defs"
+boston_streets_features <- opq(bbox = 'Boston MA USA') %>%
+  add_osm_feature(key = 'highway') %>%
+  osmdata_sf()
+boston_streets <- boston_streets_features$osm_lines %>%
+  st_transform(crs = MA_state_plane)
+```
+
+### I am plotting the street data
+
+I'll get street data for Roxbury, Boston, MA. 
+
+```{r, warning = FALSE, message = FALSE}
+MA_state_plane <- "+proj=lcc +lat_1=41.71666666666667 +lat_2=42.68333333333333 +lat_0=41 +lon_0=-71.5 +x_0=200000 +y_0=750000 +ellps=GRS80 +units=m +no_defs"
+rox_street_query <- opq(bbox = 'Roxbury MA USA')%>%
+  add_osm_feature (key = 'highway')
+rox_street_query %>%
+  osmdata_xml (file = 'OTP/Graphs/Default/rox_streets.osm')
+rox_street_features <- rox_street_query %>%
+  osmdata_sf()
+rox_streets <- rox_street_features$osm_lines %>%
+  st_transform(crs=MA_state_plane)
+```
+
+
+### I am downloading Java and Open Trip Planner
+
+```{r, results = 'hide', message = FALSE}
+path_otp <- otp_dl_jar("OTP")
+```
+
+```{r, results = 'hide', message = FALSE}
+path_data <- file.path(getwd(), "OTP")
+path_otp <- paste(path_data, "otp.jar",sep = "/")
+otp_build_graph(otp = path_otp, dir = path_data, memory = 1024) 
+```
+
+```{r, results = 'hide', message = FALSE}
+otp_setup(otp = path_otp, dir = path_data, memory =1024)
+# Connect to opentripplanner
+otpcon <- otp_connect()
+```
+
+### I am creating Isochrones
+
+Using Carole's code, I am plotting and measuring the areas that are within a five-minute walk and a five-minute drive of the Public Elementary Schools in Roxbury. 
+
+```{r, results = 'hide', message = FALSE}
+iso_5min_walk <- 
+  otp_isochrone(otpcon = otpcon, fromPlace = Roxbury_Public, 
+                mode = "WALK", cutoffSec = 300) %>%
+  st_transform(crs = MA_state_plane) %>%
+  mutate(mode = "walk")
+iso_5min_drive <- 
+  otp_isochrone(otpcon = otpcon, fromPlace = Roxbury_Public, 
+                mode = "CAR", cutoffSec = 300) %>%
+  st_transform(crs = MA_state_plane) %>%
+  mutate(mode = "drive")
+iso_all_modes <- rbind(iso_5min_drive, iso_5min_walk)
+otp_stop()
+```
+
+### Figure 1 - Comparision of Walking and Driving Isochrones
+I used Carole's code to create this map of walksheds and drivesheds. 
+
+```{r}
+right_side <- st_bbox(iso_all_modes)$xmax
+left_side  <- st_bbox(iso_all_modes)$xmin
+top_side <- st_bbox(iso_all_modes)$ymax
+bottom_side <- st_bbox(iso_all_modes)$ymin
+ggplot(iso_all_modes) +
+  annotation_map_tile(zoomin = 0, progress = "none") +
+  geom_sf(aes(fill = mode), alpha = 0.5) +
+  geom_sf(data = Roxbury_Public) +
+  coord_sf(xlim = c(left_side, right_side), 
+           ylim = c(bottom_side, top_side), expand = FALSE) +
+  scale_fill_viridis_d(name = "Area that is reachable within 5 minutes",
+                       labels = c("By car", "By foot")) +
+  theme_map() +
+  labs(caption = "Basemap Copyright OpenStreetMap contributors")
+```
+
+
+### Figure 2
+I used Carole's code to create this Scatter Plot that also compares the differences between walking and driving isochromes. 
+
+```{r}
+iso_areas <- iso_all_modes %>%
+  mutate(area = st_area(iso_all_modes)) %>%
+  st_set_geometry(NULL) %>%
+  pivot_wider(names_from = mode, values_from = area) 
+ggplot(iso_areas, 
+       aes(x = as.numeric(walk), y = as.numeric(drive))) +
+  geom_point() +
+  scale_x_continuous(name = 
+            "Area within a five-minute walking distance\nof a public elementary school in Roxbury\n(square km)",
+            breaks = breaks <- seq(10000, 130000, by = 20000),
+            labels = breaks / 1000000) +
+  scale_y_continuous(name = 
+            "Area within a five-minute driving distance\nof a public elementary school in Roxbury\n(square km)",
+            breaks = breaks <- seq(0, 700000, by = 100000),
+            labels = breaks / 1000000) +
+  theme_bw()
+```
+
+### Figure 3
+
+I created this Boxplot after looking at Adrianna's, Meghan's, and Kristy's work, and referring back to Assignment 2 that required us to make 10 different plots. I do think it is a little hard to interpret, but one thing that sticks out to me is that there is one school with a really small area within
+a 5 minute walking distance, so it is not that accesible via walking.
+
+```{r}
+iso_areas <- iso_all_modes %>%
+  mutate(area = st_area(iso_all_modes)) %>%
+  st_set_geometry(NULL) %>%
+  pivot_wider(names_from = mode, values_from = area) 
+ggplot(iso_areas, 
+       aes(x = as.numeric(walk), y = as.numeric(drive))) +
+  geom_boxplot() +  
+  geom_point(position = "jitter",
+             size = 1.5,
+             alpha = 1.5) +
+  scale_x_continuous(name = 
+            "Area within a five-minute walking distance\nof a public elementary school in Roxbury\n(square km)",
+            breaks = breaks <- seq(10000, 400000, by = 20000),
+            labels = breaks / 1000000) +
+  scale_y_continuous(name = 
+            "Area within a five-minute driving distance\nof a public elementary school in Roxbury\n(square km)",
+            breaks = breaks <- seq(0, 1000000, by = 100000),
+            labels = breaks / 1000000) +
+  theme_bw()
+```
+
+### Why this is important
+This was particularly interesting to me, because through my research for studio I have learned that Roxbury has had a lot of population growth over the past few years, with the largest increase in population being in young people ages 0-14.
